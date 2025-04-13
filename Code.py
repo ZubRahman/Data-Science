@@ -11,24 +11,33 @@ import matplotlib.pyplot as plt
 import plotly.express as px
 # because of Windows
 from multiprocessing import freeze_support
-
 #predict model
 import numpy as np
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.pipeline import make_pipeline
+# freeze support
+from multiprocessing import freeze_support
+# cpu usage
+import psutil
+from psutil import *
+import os
 
-trips_by_distance = pd.read_csv("Trips_by_Distance.csv")
+trips_by_distance_pandas = pd.read_csv("Trips_by_Distance.csv")
 trips_full_data = pd.read_csv("Trips_Full Data.csv")
 
-def question1():
+
+
+#pandas
+
+def question1_pandas():
     # Question 1: How many people stay at home and the number of trips daily?
 
     # Summing the population staying at home
-    population_staying_home = trips_by_distance['Population Staying at Home'].sum()
+    population_staying_home = trips_by_distance_pandas['Population Staying at Home'].sum()
 
     # Summing the total number of trips (sum the appropriate columns)
-    total_trips = trips_by_distance[['Number of Trips <1', 'Number of Trips 1-3', 'Number of Trips 3-5', 
+    total_trips = trips_by_distance_pandas[['Number of Trips <1', 'Number of Trips 1-3', 'Number of Trips 3-5', 
                                     'Number of Trips 5-10', 'Number of Trips 10-25', 'Number of Trips 25-50', 
                                     'Number of Trips 50-100', 'Number of Trips 100-250', 'Number of Trips 250-500', 
                                     'Number of Trips >=500']].sum()
@@ -37,7 +46,7 @@ def question1():
     print(f"Population staying at home: {population_staying_home}")
     print(f"Total trips: {total_trips}")
 
-def question2():
+def question2_pandas():
     # Question 2: How long and how many people travel daily?
 
     # Summing the number of trips for different distance categories in the `Trips_Full Data.csv`
@@ -51,6 +60,18 @@ def question2():
     print(trip_distances)
     print(f"\nTotal people not staying at home: {people_not_staying_home}")
 
+def question3_pandas():
+    # Question 3: Identify the dates that over 10 million people conduct 10-25 trips
+    dates_10_25 = trips_by_distance_pandas[trips_by_distance_pandas['Number of Trips 10-25'] > 10_000_000]
+    print("\nDates with more than 10 million trips for 10-25 miles:")
+    print(dates_10_25[['Date', 'Number of Trips 10-25']])
+
+def question4_pandas():
+    # Question 4: if over 10 million conduct 50-100 trips
+    dates_50_100 = trips_by_distance_pandas[trips_by_distance_pandas['Number of Trips 50-100'] > 10_000_000]
+    print("\nDates with more than 10 million trips for 50-100 miles:")
+    print(dates_50_100[['Date', 'Number of Trips 50-100']])
+
 def question1_2_visual():
     trip_distances = trips_full_data[['Trips 1-25 Miles', 'Trips 25-50 Miles', 'Trips 50-100 Miles', 
                                     'Trips 100-250 Miles', 'Trips 250-500 Miles', 'Trips 500+ Miles']].sum()
@@ -61,9 +82,9 @@ def question1_2_visual():
     # creating the bar plot i.e.
     # Histogram 1: People staying at home vs Week
     plt.figure(figsize=(10, 5))
-    plt.hist(trips_by_distance['Week'], 
-            weights=trips_by_distance['Population Staying at Home'],
-            bins=trips_by_distance['Week'].nunique(), 
+    plt.hist(trips_by_distance_pandas['Week'], 
+            weights=trips_by_distance_pandas['Population Staying at Home'],
+            bins=trips_by_distance_pandas['Week'].nunique(), 
             color='skyblue', edgecolor='black')
     plt.xlabel("Week")
     plt.ylabel("Number of People Staying at Home")
@@ -71,7 +92,6 @@ def question1_2_visual():
     plt.grid(True)
     plt.tight_layout()
     plt.show()
-
 
     # barplot: People travelling vs Distance
     plt.figure(figsize=(10, 5))
@@ -84,21 +104,9 @@ def question1_2_visual():
     plt.tight_layout()
     plt.show()
 
-def question3():
-    # Question 3: Identify the dates that over 10 million people conduct 10-25 trips
-    dates_10_25 = trips_by_distance[trips_by_distance['Number of Trips 10-25'] > 10_000_000]
-    print("\nDates with more than 10 million trips for 10-25 miles:")
-    print(dates_10_25[['Date', 'Number of Trips 10-25']])
-
-def question4():
-    # Question 4: if over 10 million conduct 50-100 trips
-    dates_50_100 = trips_by_distance[trips_by_distance['Number of Trips 50-100'] > 10_000_000]
-    print("\nDates with more than 10 million trips for 50-100 miles:")
-    print(dates_50_100[['Date', 'Number of Trips 50-100']])
-
 def question3_4_visual():
-    dates_10_25 = trips_by_distance[trips_by_distance['Number of Trips 10-25'] > 10_000_000]
-    dates_50_100 = trips_by_distance[trips_by_distance['Number of Trips 50-100'] > 10_000_000]
+    dates_10_25 = trips_by_distance_pandas[trips_by_distance_pandas['Number of Trips 10-25'] > 10_000_000]
+    dates_50_100 = trips_by_distance_pandas[trips_by_distance_pandas['Number of Trips 50-100'] > 10_000_000]
 
     #Visualisation
     fig = px.scatter(
@@ -112,35 +120,108 @@ def question3_4_visual():
     #Visualisation
     fig = px.scatter(
         x=dates_50_100['Date'], 
-        y=dates_50_100['Number of Trips 10-25'],
+        y=dates_50_100['Number of Trips 50-100'],
         labels={'x': 'Date', 'y': 'Number of Trips (50-100 miles)'},
         title='Trips of 50-100 Miles Over Time'
     )
     fig.show()
 
-def parallel_processing():
-    freeze_support()
-    n_processors = [10, 20]
-    n_processors_time = {}
+dtype={'County Name': 'object',
+       'Number of Trips': 'float64',
+       'Number of Trips 1-3': 'float64',
+       'Number of Trips 10-25': 'float64',
+       'Number of Trips 100-250': 'float64',
+       'Number of Trips 25-50': 'float64',
+       'Number of Trips 250-500': 'float64',
+       'Number of Trips 3-5': 'float64',
+       'Number of Trips 5-10': 'float64',
+       'Number of Trips 50-100': 'float64',
+       'Number of Trips <1': 'float64',
+       'Number of Trips >=500': 'float64',
+       'Population Not Staying at Home': 'float64',
+       'Population Staying at Home': 'float64',
+       'State Postal Code': 'object'}
 
-    for processor in n_processors:
-        print(f"\n\n\nStarting computation with {processor} processors...\n\n\n")
-        client = Client(n_workers = processor)
+# Load data using Dask
+trips_by_distance_dask = dd.read_csv("Trips_by_Distance.csv",dtype = dtype, blocksize="25MB",
+    sample_rows=1000)
+
+dtype1 = {
+    'County Name': 'object',
+    'Number of Trips': 'float64',
+    'Number of Trips 1-3': 'float64',
+    'Number of Trips 10-25': 'float64',
+    'Number of Trips 100-250': 'float64',
+    'Number of Trips 25-50': 'float64',
+    'Number of Trips 250-500': 'float64',
+    'Number of Trips 3-5': 'float64',
+    'Number of Trips 5-10': 'float64',
+    'Number of Trips 50-100': 'float64',
+    'Number of Trips <1': 'float64',
+    'Number of Trips >=500': 'float64',
+    'Population Not Staying at Home': 'float64',
+    'Population Staying at Home': 'float64',
+    'State Postal Code': 'object'
+}
+
+
+trips_full_data_dask = dd.read_csv("Trips_Full Data.csv", dtype = dtype1)
+
+def question1_dask(df):
+    population_staying_home = df['Population Staying at Home'].sum().compute()
+    
+    trip_cols = ['Number of Trips <1', 'Number of Trips 1-3', 'Number of Trips 3-5', 
+                 'Number of Trips 5-10', 'Number of Trips 10-25', 'Number of Trips 25-50', 
+                 'Number of Trips 50-100', 'Number of Trips 100-250', 'Number of Trips 250-500', 
+                 'Number of Trips >=500']
+    total_trips = df[trip_cols].sum().sum().compute()
+
+    print(f"[DASK] Population staying at home: {population_staying_home}")
+    print(f"[DASK] Total trips: {total_trips}")
+
+def question2_dask(df):
+    trip_distances = df[['Trips 1-25 Miles', 'Trips 25-50 Miles', 'Trips 50-100 Miles', 
+                         'Trips 100-250 Miles', 'Trips 250-500 Miles', 'Trips 500+ Miles']].sum().compute()
+    people_not_staying_home = df['People Not Staying at Home'].sum().compute()
+
+    print("\n[DASK] Total trips by distance:")
+    print(trip_distances)
+    print(f"[DASK] People not staying at home: {people_not_staying_home}")
+
+def question3_dask(df):
+    result = df[df['Number of Trips 10-25'] > 10_000_000][['Date', 'Number of Trips 10-25']].compute()
+    print("\n[DASK] Dates with >10 million trips (10-25):")
+    print(result)
+
+def question4_dask(df):
+    result = df[df['Number of Trips 50-100'] > 10_000_000][['Date', 'Number of Trips 50-100']].compute()
+    print("\n[DASK] Dates with >10 million trips (50-100):")
+    print(result)
+
+def dask_parallel_processing():
+    processors = [1,10, 20]
+    processing_times = {}
+
+    for n in processors:
+        print(f"\n>>> Running with {n} processors")
+        client = Client(memory_limit = '1GB', n_workers=n, threads_per_worker=1)
+        #client = Client(n_workers=n, threads_per_worker = 1)
+        #client = Client(memory_limit='1GB', n_workers=10, threads_per_worker=1)
+
         start = time.time()
-        
-        question1()
-        question2()
-        question3()
-        question4()
-        
-        endtime = time.time()
+        question1_dask(trips_by_distance_dask)
+        question2_dask(trips_full_data_dask)
+        question3_dask(trips_by_distance_dask)
+        question4_dask(trips_by_distance_dask)
+        end = time.time()
 
-        dask_time = endtime - start
-        n_processors_time[processor] = dask_time
-        print(f"\n\n\nTime with {processor} processors: {dask_time} seconds\n\n\n")
-        # Close the client after computation
+        duration = end - start
+        processing_times[n] = duration
+        print(f"[DASK] Time with {n} processors: {duration:.2f} seconds")
+
         client.close()
-        print("\n\n\n", n_processors_time, "\n\n\n")
+
+    print("\n[DASK] Summary of processing times:", processing_times)
 
 def predict_model():
     # Aggregate total trips across distances
@@ -171,22 +252,32 @@ def predict_model():
     plt.tight_layout()
     plt.show()
 
+def print_resource_usage():
+    process = psutil.Process(os.getpid())
+    mem_info = process.memory_info()
+    cpu_percent = psutil.cpu_percent(interval=1)  # wait 1 second to get accurate value
+    ram_used_mb = mem_info.rss / (1024 * 1024)
+
+    print(f"CPU Usage: {cpu_percent:.2f}%")
+    print(f"RAM Usage: {ram_used_mb:.2f} MB")
 
 if __name__ == "__main__":
-
+    freeze_support()
+    
     # serial processing
-    """start_time = time.time()
-    question1()
-    question2()
-    question3()
-    question4()
+    start_time = time.time()
+    question1_pandas()
+    question2_pandas()
+    question3_pandas()
+    question4_pandas()
     end_time = time.time()
     print(f"{end_time - start_time:.2f}seconds")
-    
-    """
+    print_resource_usage()
+
+    dask_parallel_processing()
+    print_resource_usage()
 
     #question1_2_visual()
     #question3_4_visual()
 
-    #parallel_processing()
-    predict_model()
+    #predict_model()
