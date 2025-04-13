@@ -2,7 +2,7 @@
 import pandas as pd
 # parallel processing
 import dask.dataframe as dd
-from dask.distributed import Client, progress
+from dask.distributed import Client, LocalCluster
 # to see speed
 import time
 # histogram
@@ -91,7 +91,7 @@ def question1_2_visual():
     plt.title("Histogram: People Staying at Home vs Week")
     plt.grid(True)
     plt.tight_layout()
-    plt.show()
+    plt.show(block=True)
 
     # barplot: People travelling vs Distance
     plt.figure(figsize=(10, 5))
@@ -102,7 +102,7 @@ def question1_2_visual():
     plt.xticks(rotation=45)
     plt.grid(True)
     plt.tight_layout()
-    plt.show()
+    plt.show(block=True)
 
 def question3_4_visual():
     dates_10_25 = trips_by_distance_pandas[trips_by_distance_pandas['Number of Trips 10-25'] > 10_000_000]
@@ -200,13 +200,31 @@ def question4_dask(df):
 
 def dask_parallel_processing():
     processors = [1,10, 20]
+    global processing_times
     processing_times = {}
 
     for n in processors:
         print(f"\n>>> Running with {n} processors")
-        client = Client(memory_limit = '1GB', n_workers=n, threads_per_worker=1)
-        #client = Client(n_workers=n, threads_per_worker = 1)
-        #client = Client(memory_limit='1GB', n_workers=10, threads_per_worker=1)
+
+        # Get the current script directory
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+
+        # Create a 'dask' folder inside that directory
+        local_dask_dir = os.path.join(current_dir, "dask")
+        os.makedirs(local_dask_dir, exist_ok=True)
+
+        cluster = LocalCluster(
+        memory_limit='2GB',
+        processes=True,
+        local_directory=local_dask_dir,
+        dashboard_address=':8790',
+        n_workers=n, 
+        threads_per_worker=1
+        )
+
+        client = Client(cluster)
+        import webbrowser
+        webbrowser.open(client.dashboard_link)
 
         start = time.time()
         question1_dask(trips_by_distance_dask)
@@ -216,12 +234,35 @@ def dask_parallel_processing():
         end = time.time()
 
         duration = end - start
+        
         processing_times[n] = duration
         print(f"[DASK] Time with {n} processors: {duration:.2f} seconds")
 
         client.close()
+        cluster.close()
 
     print("\n[DASK] Summary of processing times:", processing_times)
+    import csv
+    with open("dask_processing_times.csv", "w", newline='') as file:
+        writer = csv.writer(file)
+        writer.writerow(["Processors", "Processing Time (s)"])
+        for proc, duration in processing_times.items():
+            writer.writerow([proc, round(duration, 2)])
+    # Visualizing the processing times
+    plt.figure(figsize=(8, 5))
+    plt.bar(processing_times.keys(), processing_times.values(), color='teal', edgecolor='black')
+    plt.xlabel("Number of Processors")
+    plt.ylabel("Processing Time (seconds)")
+    plt.title("Dask Processing Time vs Number of Processors")
+    plt.xticks(list(processing_times.keys()))
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show(block=True)
+
+    
+
+    
+
 
 def predict_model():
     # Aggregate total trips across distances
@@ -250,7 +291,7 @@ def predict_model():
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
-    plt.show()
+    plt.show(block=True)
 
 def print_resource_usage():
     process = psutil.Process(os.getpid())
@@ -261,9 +302,7 @@ def print_resource_usage():
     print(f"CPU Usage: {cpu_percent:.2f}%")
     print(f"RAM Usage: {ram_used_mb:.2f} MB")
 
-if __name__ == "__main__":
-    freeze_support()
-    
+def serial_processing():
     # serial processing
     start_time = time.time()
     question1_pandas()
@@ -272,12 +311,48 @@ if __name__ == "__main__":
     question4_pandas()
     end_time = time.time()
     print(f"{end_time - start_time:.2f}seconds")
+    global serial_processing_time
+    serial_processing_time = end_time - start_time
+
+def plot_processing_times_comparison(processing_times, serial_processing_time):
+    # Add serial time for comparison
+    processing_times["Serial"] = serial_processing_time
+
+    # Ensure all keys are strings
+    processing_times_str_keys = {str(k): v for k, v in processing_times.items()}
+
+    # Extract the labels and values
+    labels = list(processing_times_str_keys.keys())
+    values = list(processing_times_str_keys.values())
+
+    # Plot
+    plt.figure(figsize=(10, 6))
+    plt.bar(labels, values, color='orange', edgecolor='black')
+    plt.xlabel("Processors / Method")
+    plt.ylabel("Processing Time (seconds)")
+    plt.title("Comparison of Processing Times: Serial vs Dask")
+    plt.xticks(rotation=45)
+    plt.grid(axis='y')
+    plt.tight_layout()
+    plt.show()
+
+if __name__ == "__main__":
+    freeze_support()
+    
+    serial_processing()
+    
     print_resource_usage()
 
     dask_parallel_processing()
     print_resource_usage()
 
-    #question1_2_visual()
-    #question3_4_visual()
+    print("esgnjersnghjrsweghniersdphi;ujphphphphphphpjhpjhphjphjphjphjphjphjpjhphjphjphjphjphjphjphjphjphjphphphphphphphph", processing_times)
+    print("esgnjersnghjrsweghniersdphi;ujphphphphphphpjhpjhphjphjphjphjphjphjpjhphjphjphjphjphjphjphjphjphjphphphphphphphph", serial_processing_time)
 
-    #predict_model()
+    plot_processing_times_comparison(processing_times, serial_processing_time)
+
+    question1_2_visual()
+    question3_4_visual()
+
+
+    predict_model()
