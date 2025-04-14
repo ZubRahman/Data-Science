@@ -21,11 +21,52 @@ from multiprocessing import freeze_support
 # cpu usage
 import psutil
 import os
+# 
+from pandas.api.types import is_string_dtype, is_object_dtype, is_numeric_dtype
 
 trips_by_distance_pandas = pd.read_csv("Trips_by_Distance.csv")
 trips_full_data = pd.read_csv("Trips_Full Data.csv")
 
+dtype={'County Name': 'object',
+       'Number of Trips': 'float64',
+       'Number of Trips 1-3': 'float64',
+       'Number of Trips 10-25': 'float64',
+       'Number of Trips 100-250': 'float64',
+       'Number of Trips 25-50': 'float64',
+       'Number of Trips 250-500': 'float64',
+       'Number of Trips 3-5': 'float64',
+       'Number of Trips 5-10': 'float64',
+       'Number of Trips 50-100': 'float64',
+       'Number of Trips <1': 'float64',
+       'Number of Trips >=500': 'float64',
+       'Population Not Staying at Home': 'float64',
+       'Population Staying at Home': 'float64',
+       'State Postal Code': 'object'}
 
+# Load data using Dask
+trips_by_distance_dask = dd.read_csv("Trips_by_Distance.csv",dtype = dtype, blocksize="25MB",
+    sample_rows=1000)
+
+dtype1 = {
+    'County Name': 'object',
+    'Number of Trips': 'float64',
+    'Number of Trips 1-3': 'float64',
+    'Number of Trips 10-25': 'float64',
+    'Number of Trips 100-250': 'float64',
+    'Number of Trips 25-50': 'float64',
+    'Number of Trips 250-500': 'float64',
+    'Number of Trips 3-5': 'float64',
+    'Number of Trips 5-10': 'float64',
+    'Number of Trips 50-100': 'float64',
+    'Number of Trips <1': 'float64',
+    'Number of Trips >=500': 'float64',
+    'Population Not Staying at Home': 'float64',
+    'Population Staying at Home': 'float64',
+    'State Postal Code': 'object'
+}
+
+
+trips_full_data_dask = dd.read_csv("Trips_Full Data.csv", dtype = dtype1)
 
 #pandas
 
@@ -125,47 +166,6 @@ def question3_4_visual():
     )
     fig.show()
 
-dtype={'County Name': 'object',
-       'Number of Trips': 'float64',
-       'Number of Trips 1-3': 'float64',
-       'Number of Trips 10-25': 'float64',
-       'Number of Trips 100-250': 'float64',
-       'Number of Trips 25-50': 'float64',
-       'Number of Trips 250-500': 'float64',
-       'Number of Trips 3-5': 'float64',
-       'Number of Trips 5-10': 'float64',
-       'Number of Trips 50-100': 'float64',
-       'Number of Trips <1': 'float64',
-       'Number of Trips >=500': 'float64',
-       'Population Not Staying at Home': 'float64',
-       'Population Staying at Home': 'float64',
-       'State Postal Code': 'object'}
-
-# Load data using Dask
-trips_by_distance_dask = dd.read_csv("Trips_by_Distance.csv",dtype = dtype, blocksize="25MB",
-    sample_rows=1000)
-
-dtype1 = {
-    'County Name': 'object',
-    'Number of Trips': 'float64',
-    'Number of Trips 1-3': 'float64',
-    'Number of Trips 10-25': 'float64',
-    'Number of Trips 100-250': 'float64',
-    'Number of Trips 25-50': 'float64',
-    'Number of Trips 250-500': 'float64',
-    'Number of Trips 3-5': 'float64',
-    'Number of Trips 5-10': 'float64',
-    'Number of Trips 50-100': 'float64',
-    'Number of Trips <1': 'float64',
-    'Number of Trips >=500': 'float64',
-    'Population Not Staying at Home': 'float64',
-    'Population Staying at Home': 'float64',
-    'State Postal Code': 'object'
-}
-
-
-trips_full_data_dask = dd.read_csv("Trips_Full Data.csv", dtype = dtype1)
-
 def question1_dask(df):
     population_staying_home = df['Population Staying at Home'].sum().compute()
     
@@ -213,7 +213,7 @@ def dask_parallel_processing():
         os.makedirs(local_dask_dir, exist_ok=True)
 
         cluster = LocalCluster(
-        memory_limit='2GB',
+        memory_limit='1GB',
         processes=True,
         local_directory=local_dask_dir,
         dashboard_address=':8790',
@@ -222,8 +222,9 @@ def dask_parallel_processing():
         )
 
         client = Client(cluster)
-        import webbrowser
-        webbrowser.open(client.dashboard_link)
+        
+        #import webbrowser
+        #webbrowser.open(client.dashboard_link)
 
         start = time.time()
         question1_dask(trips_by_distance_dask)
@@ -241,12 +242,7 @@ def dask_parallel_processing():
         cluster.close()
 
     print("\n[DASK] Summary of processing times:", processing_times)
-    import csv
-    with open("dask_processing_times.csv", "w", newline='') as file:
-        writer = csv.writer(file)
-        writer.writerow(["Processors", "Processing Time (s)"])
-        for proc, duration in processing_times.items():
-            writer.writerow([proc, round(duration, 2)])
+
     # Visualizing the processing times
     plt.figure(figsize=(8, 5))
     plt.bar(processing_times.keys(), processing_times.values(), color='teal', edgecolor='black')
@@ -257,10 +253,6 @@ def dask_parallel_processing():
     plt.grid(True)
     plt.tight_layout()
     plt.show(block=True)
-
-    
-
-    
 
 
 def predict_model():
@@ -292,6 +284,7 @@ def predict_model():
     plt.tight_layout()
     plt.show(block=True)
 
+
 def print_resource_usage():
     process = psutil.Process(os.getpid())
     mem_info = process.memory_info()
@@ -300,6 +293,7 @@ def print_resource_usage():
 
     print(f"CPU Usage: {cpu_percent:.2f}%")
     print(f"RAM Usage: {ram_used_mb:.2f} MB")
+
 
 def serial_processing():
     # serial processing
@@ -312,6 +306,7 @@ def serial_processing():
     print(f"{end_time - start_time:.2f}seconds")
     global serial_processing_time
     serial_processing_time = end_time - start_time
+
 
 def plot_processing_times_comparison(processing_times, serial_processing_time):
     # Add serial time for comparison
@@ -335,23 +330,89 @@ def plot_processing_times_comparison(processing_times, serial_processing_time):
     plt.tight_layout()
     plt.show()
 
+
+# Function for cleaning Pandas DataFrame
+def clean_pandas_dataframe(df):
+    print("Cleaning Pandas DataFrame...")
+    object_cols = df.select_dtypes(include=['object', 'string']).columns
+    numeric_cols = df.select_dtypes(include=['number']).columns
+
+    for col in object_cols:
+        df[col] = df[col].fillna("Unknown")
+
+    for col in numeric_cols:
+        df[col] = df[col].fillna(0)
+
+    return df
+
+
+# Function for cleaning Dask DataFrame
+def clean_dask_dataframe(df):
+    print("Cleaning Dask DataFrame...")
+    for col in df.columns:
+        if is_string_dtype(df[col]) or is_object_dtype(df[col]):
+            object_cols = [col]
+    for col in df.columns:
+        if is_numeric_dtype(df[col]):
+            numeric_cols = [col]
+
+    # Fill string columns with "0"
+    for col in object_cols:
+        df[col] = df[col].fillna("Unknown")
+
+    # Fill numeric columns with 0
+    for col in numeric_cols:
+        df[col] = df[col].fillna(0)
+
+    return df
+
+def clean_data(trips_full_data, trips_by_distance_dask):
+    # Cleaning Dask DataFrame before and after
+    print(" Before Cleaning (Dask):")
+    print(trips_by_distance_dask.isnull().sum().compute())
+    print(trips_by_distance_dask.shape)
+
+    # Clean Dask DataFrame
+    trips_by_distance_dask = clean_dask_dataframe(trips_by_distance_dask)
+
+    print("\n After Cleaning (Dask):")
+    print(trips_by_distance_dask.isnull().sum().compute())
+
+    # Cleaning Pandas DataFrame before and after
+    print("\n Before Cleaning (Pandas):")
+    print(trips_full_data.isnull().sum())
+    print(trips_full_data.shape)
+
+    # Clean Pandas DataFrame
+    trips_full_data = clean_pandas_dataframe(trips_full_data)
+
+    print("\n After Cleaning (Pandas):")
+    print(trips_full_data.isnull().sum())   
+
+def check_duplicated_data():
+    duplicates = trips_full_data.duplicated().sum()
+    print("Duplicates Found in: Trips_Full Data")
+    print(duplicates)
+
+    # print duplicated rows
+    duplicates = trips_by_distance_pandas.duplicated().sum() # have to use pandas be
+    print("Duplicates found in: Trips_by_Distance")
+    print(duplicates)
+
 if __name__ == "__main__":
     freeze_support()
-    
+
+    check_duplicated_data()
+    clean_data(trips_full_data, trips_by_distance_dask)
     serial_processing()
     
     print_resource_usage()
-
     dask_parallel_processing()
     print_resource_usage()
-
-    print("esgnjersnghjrsweghniersdphi;ujphphphphphphpjhpjhphjphjphjphjphjphjpjhphjphjphjphjphjphjphjphjphjphphphphphphphph", processing_times)
-    print("esgnjersnghjrsweghniersdphi;ujphphphphphphpjhpjhphjphjphjphjphjphjpjhphjphjphjphjphjphjphjphjphjphphphphphphphph", serial_processing_time)
 
     plot_processing_times_comparison(processing_times, serial_processing_time)
 
     question1_2_visual()
     question3_4_visual()
-
 
     predict_model()
