@@ -20,7 +20,6 @@ from sklearn.pipeline import make_pipeline
 from multiprocessing import freeze_support
 # cpu usage
 import psutil
-from psutil import *
 import os
 
 trips_by_distance_pandas = pd.read_csv("Trips_by_Distance.csv")
