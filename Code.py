@@ -1,7 +1,7 @@
 # pandas
-import pandas as pd
+
 # parallel processing
-import dask.dataframe as dd
+
 from dask.distributed import Client,LocalCluster
 # to see speed
 import time
@@ -24,8 +24,13 @@ import os
 # 
 from pandas.api.types import is_string_dtype, is_object_dtype, is_numeric_dtype
 
+import dask.dataframe as dd
+
+import pandas as pd
 trips_by_distance_pandas = pd.read_csv("Trips_by_Distance.csv")
 trips_full_data = pd.read_csv("Trips_Full Data.csv")
+
+import dask.dataframe as dd
 
 dtype={'County Name': 'object',
        'Number of Trips': 'float64',
@@ -44,29 +49,10 @@ dtype={'County Name': 'object',
        'State Postal Code': 'object'}
 
 # Load data using Dask
-trips_by_distance_dask = dd.read_csv("Trips_by_Distance.csv",dtype = dtype, blocksize="25MB",
+trips_by_distance_dask = dd.read_csv("Trips_by_Distance.csv",dtype = dtype, blocksize="64MB",
     sample_rows=1000)
 
-dtype1 = {
-    'County Name': 'object',
-    'Number of Trips': 'float64',
-    'Number of Trips 1-3': 'float64',
-    'Number of Trips 10-25': 'float64',
-    'Number of Trips 100-250': 'float64',
-    'Number of Trips 25-50': 'float64',
-    'Number of Trips 250-500': 'float64',
-    'Number of Trips 3-5': 'float64',
-    'Number of Trips 5-10': 'float64',
-    'Number of Trips 50-100': 'float64',
-    'Number of Trips <1': 'float64',
-    'Number of Trips >=500': 'float64',
-    'Population Not Staying at Home': 'float64',
-    'Population Staying at Home': 'float64',
-    'State Postal Code': 'object'
-}
-
-
-trips_full_data_dask = dd.read_csv("Trips_Full Data.csv", dtype = dtype1)
+trips_full_data_dask = dd.read_csv("Trips_Full Data.csv", dtype = dtype)
 
 #pandas
 
@@ -333,7 +319,7 @@ def plot_processing_times_comparison(processing_times, serial_processing_time):
 
 # Function for cleaning Pandas DataFrame
 def clean_pandas_dataframe(df):
-    print("Cleaning Pandas DataFrame...")
+    print("\nCleaning...")
     object_cols = df.select_dtypes(include=['object', 'string']).columns
     numeric_cols = df.select_dtypes(include=['number']).columns
 
@@ -345,49 +331,28 @@ def clean_pandas_dataframe(df):
 
     return df
 
-
-# Function for cleaning Dask DataFrame
-def clean_dask_dataframe(df):
-    print("Cleaning Dask DataFrame...")
-    for col in df.columns:
-        if is_string_dtype(df[col]) or is_object_dtype(df[col]):
-            object_cols = [col]
-    for col in df.columns:
-        if is_numeric_dtype(df[col]):
-            numeric_cols = [col]
-
-    # Fill string columns with "0"
-    for col in object_cols:
-        df[col] = df[col].fillna("Unknown")
-
-    # Fill numeric columns with 0
-    for col in numeric_cols:
-        df[col] = df[col].fillna(0)
-
-    return df
-
-def clean_data(trips_full_data, trips_by_distance_dask):
-    # Cleaning Dask DataFrame before and after
-    print(" Before Cleaning (Dask):")
-    print(trips_by_distance_dask.isnull().sum().compute())
-    print(trips_by_distance_dask.shape)
-
-    # Clean Dask DataFrame
-    trips_by_distance_dask = clean_dask_dataframe(trips_by_distance_dask)
-
-    print("\n After Cleaning (Dask):")
-    print(trips_by_distance_dask.isnull().sum().compute())
-
+def clean_data(trips_full_data, trips_by_distance_pandas):
     # Cleaning Pandas DataFrame before and after
-    print("\n Before Cleaning (Pandas):")
+    print("\n Before Cleaning (Trips_by_distance):")
+    print(trips_by_distance_pandas.isnull().sum())
+    print(trips_by_distance_pandas.shape)
+
+    # Clean Pandas DataFrame
+    trips_by_distance_pandas = clean_pandas_dataframe(trips_by_distance_pandas)
+
+    print("\n After Cleaning (Trips_by_distance):")
+    print(trips_by_distance_pandas.isnull().sum())
+
+
+    print("\n Before Cleaning (trips_full_data):")
     print(trips_full_data.isnull().sum())
     print(trips_full_data.shape)
 
     # Clean Pandas DataFrame
     trips_full_data = clean_pandas_dataframe(trips_full_data)
 
-    print("\n After Cleaning (Pandas):")
-    print(trips_full_data.isnull().sum())   
+    print("\n After Cleaning (Trips_Full Data):")
+    print(trips_full_data.isnull().sum())
 
 def check_duplicated_data():
     duplicates = trips_full_data.duplicated().sum()
@@ -396,14 +361,14 @@ def check_duplicated_data():
 
     # print duplicated rows
     duplicates = trips_by_distance_pandas.duplicated().sum() # have to use pandas be
-    print("Duplicates found in: Trips_by_Distance")
+    print("Duplicates found in: trips_by_distance_pandas")
     print(duplicates)
 
 if __name__ == "__main__":
     freeze_support()
 
     check_duplicated_data()
-    clean_data(trips_full_data, trips_by_distance_dask)
+    clean_data(trips_full_data, trips_by_distance_pandas)
     serial_processing()
     
     print_resource_usage()
@@ -415,4 +380,4 @@ if __name__ == "__main__":
     question1_2_visual()
     question3_4_visual()
 
-    predict_model()
+    predict_model() # type: ignore
