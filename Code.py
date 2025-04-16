@@ -49,7 +49,7 @@ dtype={'County Name': 'object',
        'State Postal Code': 'object'}
 
 # Load data using Dask
-trips_by_distance_dask = dd.read_csv("Trips_by_Distance.csv",dtype = dtype, blocksize="64MB",
+trips_by_distance_dask = dd.read_csv("Trips_by_Distance.csv",dtype = dtype, blocksize="25MB",
     sample_rows=1000)
 
 trips_full_data_dask = dd.read_csv("Trips_Full Data.csv", dtype = dtype)
@@ -131,26 +131,22 @@ def question1_2_visual():
     plt.show(block=True)
 
 def question3_4_visual():
+    # Filter days with >10 million trips
     dates_10_25 = trips_by_distance_pandas[trips_by_distance_pandas['Number of Trips 10-25'] > 10_000_000]
     dates_50_100 = trips_by_distance_pandas[trips_by_distance_pandas['Number of Trips 50-100'] > 10_000_000]
 
-    #Visualisation
-    fig = px.scatter(
-        x=dates_10_25['Date'], 
-        y=dates_10_25['Number of Trips 10-25'],
-        labels={'x': 'Date', 'y': 'Number of Trips (10-25 miles)'},
-        title='Trips of 10-25 Miles Over Time'
+    # Total number of trips on those days
+    total_10_25 = dates_10_25['Number of Trips 10-25'].sum()
+    total_50_100 = dates_50_100['Number of Trips 50-100'].sum()
+
+    # Combine into a pie chart
+    fig = px.pie(
+        names=['Trips (10-25 miles)', 'Trips (50-100 miles)'],
+        values=[total_10_25, total_50_100],
+        title='Proportion of High-Volume Travel Days by Distance'
     )
     fig.show()
 
-    #Visualisation
-    fig = px.scatter(
-        x=dates_50_100['Date'], 
-        y=dates_50_100['Number of Trips 50-100'],
-        labels={'x': 'Date', 'y': 'Number of Trips (50-100 miles)'},
-        title='Trips of 50-100 Miles Over Time'
-    )
-    fig.show()
 
 def question1_dask(df):
     population_staying_home = df['Population Staying at Home'].sum().compute()
