@@ -1,32 +1,17 @@
-# pandas
-
-# parallel processing
-
 from dask.distributed import Client,LocalCluster
-# to see speed
 import time
-# histogram
 import matplotlib.pyplot as plt
-# scatterplot
 import plotly.express as px
-# because of Windows
 from multiprocessing import freeze_support
-#predict model
 import numpy as np
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.pipeline import make_pipeline
-# freeze support
 from multiprocessing import freeze_support
-# cpu usage
 import psutil
 import os
-# 
-from pandas.api.types import is_string_dtype, is_object_dtype, is_numeric_dtype
-
-import dask.dataframe as dd
-
 import pandas as pd
+
 trips_by_distance_pandas = pd.read_csv("Trips_by_Distance.csv")
 trips_full_data = pd.read_csv("Trips_Full Data.csv")
 
@@ -102,10 +87,6 @@ def question1_2_visual():
     trip_distances = trips_full_data[['Trips 1-25 Miles', 'Trips 25-50 Miles', 'Trips 50-100 Miles', 
                                     'Trips 100-250 Miles', 'Trips 250-500 Miles', 'Trips 500+ Miles']].sum()
 
-    # Summing the number of people not staying at home
-    people_not_staying_home = trips_full_data['People Not Staying at Home'].sum()
-
-    # creating the bar plot i.e.
     # Histogram 1: People staying at home vs Week
     plt.figure(figsize=(10, 5))
     plt.hist(trips_by_distance_pandas['Week'], 
@@ -119,7 +100,15 @@ def question1_2_visual():
     plt.tight_layout()
     plt.show(block=True)
 
-    # barplot: People travelling vs Distance
+
+    fig = px.pie(
+        names=['People Staying at Home', 'People Not Staying at Home'],
+        values=[trips_by_distance_pandas['Population Staying at Home'].sum(), trips_by_distance_pandas['Population Not Staying at Home'].sum()],
+        title='People Staying at Home vs People Not Staying at Home'
+    )
+    fig.show()
+
+    # People travelling vs Distance
     plt.figure(figsize=(10, 5))
     plt.bar(trip_distances.index, trip_distances.values, color='orange', edgecolor='black')
     plt.xlabel("Trip Distance Category")
@@ -131,15 +120,13 @@ def question1_2_visual():
     plt.show(block=True)
 
 def question3_4_visual():
-    # Filter days with >10 million trips
     dates_10_25 = trips_by_distance_pandas[trips_by_distance_pandas['Number of Trips 10-25'] > 10_000_000]
     dates_50_100 = trips_by_distance_pandas[trips_by_distance_pandas['Number of Trips 50-100'] > 10_000_000]
 
-    # Total number of trips on those days
     total_10_25 = dates_10_25['Number of Trips 10-25'].sum()
     total_50_100 = dates_50_100['Number of Trips 50-100'].sum()
 
-    # Combine into a pie chart
+    # pie chart
     fig = px.pie(
         names=['Trips (10-25 miles)', 'Trips (50-100 miles)'],
         values=[total_10_25, total_50_100],
@@ -151,11 +138,11 @@ def question3_4_visual():
 def question1_dask(df):
     population_staying_home = df['Population Staying at Home'].sum().compute()
     
-    trip_cols = ['Number of Trips <1', 'Number of Trips 1-3', 'Number of Trips 3-5', 
+    trip_col = ['Number of Trips <1', 'Number of Trips 1-3', 'Number of Trips 3-5', 
                  'Number of Trips 5-10', 'Number of Trips 10-25', 'Number of Trips 25-50', 
                  'Number of Trips 50-100', 'Number of Trips 100-250', 'Number of Trips 250-500', 
                  'Number of Trips >=500']
-    total_trips = df[trip_cols].sum().sum().compute()
+    total_trips = df[trip_col].sum().sum().compute()
 
     print(f"[DASK] Population staying at home: {population_staying_home}")
     print(f"[DASK] Total trips: {total_trips}")
@@ -184,13 +171,9 @@ def dask_parallel_processing():
     global processing_times
     processing_times = {}
 
-    for n in processors:
-        print(f"\n>>> Running with {n} processors")
-
-        # Get the current script directory
+    for p in processors:
+        print(f"\n>>> Running with {p} processors")
         current_dir = os.path.dirname(os.path.abspath(__file__))
-
-        # Create a 'dask' folder inside that directory
         local_dask_dir = os.path.join(current_dir, "dask")
         os.makedirs(local_dask_dir, exist_ok=True)
 
@@ -199,14 +182,11 @@ def dask_parallel_processing():
         processes=True,
         local_directory=local_dask_dir,
         dashboard_address=':8790',
-        n_workers=n, 
+        n_workers=p, 
         threads_per_worker=1
         )
 
         client = Client(cluster)
-        
-        #import webbrowser
-        #webbrowser.open(client.dashboard_link)
 
         start = time.time()
         question1_dask(trips_by_distance_dask)
@@ -217,15 +197,14 @@ def dask_parallel_processing():
 
         duration = end - start
         
-        processing_times[n] = duration
-        print(f"[DASK] Time with {n} processors: {duration:.2f} seconds")
+        processing_times[p] = duration
+        print(f"Dask Time with {p} processors: {duration:.2f} seconds")
 
         client.close()
         cluster.close()
 
-    print("\n[DASK] Summary of processing times:", processing_times)
+    print("\nDask Summary of processing times:", processing_times)
 
-    # Visualizing the processing times
     plt.figure(figsize=(8, 5))
     plt.bar(processing_times.keys(), processing_times.values(), color='teal', edgecolor='black')
     plt.xlabel("Number of Processors")
@@ -238,25 +217,21 @@ def dask_parallel_processing():
 
 
 def predict_model():
-    # Aggregate total trips across distances
     trip_data = trips_full_data[['Trips 1-25 Miles', 'Trips 25-50 Miles', 'Trips 50-100 Miles',
                                  'Trips 100-250 Miles', 'Trips 250-500 Miles', 'Trips 500+ Miles']].sum()
 
-    # Convert distance ranges into approximate midpoint values (in miles)
-    distance_midpoints = np.array([13, 37.5, 75, 175, 375, 600]).reshape(-1, 1)  # X
+    midpoints = np.array([13, 37.5, 75, 175, 375, 600]).reshape(-1, 1)  # X
     trip_counts = np.array(trip_data.values).reshape(-1, 1)  # y
 
-    # Create and fit a polynomial regression model
     model = make_pipeline(PolynomialFeatures(degree=2), LinearRegression())
-    model.fit(distance_midpoints, trip_counts)
+    model.fit(midpoints, trip_counts)
 
-    # Predict on a range of distances for simulation
     distance_range = np.linspace(0, 700, 100).reshape(-1, 1)
     predicted_trips = model.predict(distance_range)
 
-    # Plotting
+    # scatter plot
     plt.figure(figsize=(10, 6))
-    plt.scatter(distance_midpoints, trip_counts, color='red', label='Actual Data')
+    plt.scatter(midpoints, trip_counts, color='red', label='Actual Data')
     plt.plot(distance_range, predicted_trips, label='Predicted Model', color='blue')
     plt.xlabel("Trip Distance (miles)")
     plt.ylabel("Number of Trips")
@@ -269,16 +244,15 @@ def predict_model():
 
 def print_resource_usage():
     process = psutil.Process(os.getpid())
-    mem_info = process.memory_info()
-    cpu_percent = psutil.cpu_percent(interval=1)  # wait 1 second to get accurate value
-    ram_used_mb = mem_info.rss / (1024 * 1024)
+    memory_info = process.memory_info()
+    cpu_percent = psutil.cpu_percent(interval=1)
+    ram_used_mb = memory_info.rss / (1024 * 1024)
 
     print(f"CPU Usage: {cpu_percent:.2f}%")
     print(f"RAM Usage: {ram_used_mb:.2f} MB")
 
 
 def serial_processing():
-    # serial processing
     start_time = time.time()
     question1_pandas()
     question2_pandas()
@@ -291,17 +265,13 @@ def serial_processing():
 
 
 def plot_processing_times_comparison(processing_times, serial_processing_time):
-    # Add serial time for comparison
     processing_times["Serial"] = serial_processing_time
-
-    # Ensure all keys are strings
     processing_times_str_keys = {str(k): v for k, v in processing_times.items()}
 
-    # Extract the labels and values
     labels = list(processing_times_str_keys.keys())
     values = list(processing_times_str_keys.values())
 
-    # Plot
+    # barplot: Comparison of Processing Times: Serial vs Dask
     plt.figure(figsize=(10, 6))
     plt.bar(labels, values, color='orange', edgecolor='black')
     plt.xlabel("Processors / Method")
@@ -312,8 +282,6 @@ def plot_processing_times_comparison(processing_times, serial_processing_time):
     plt.tight_layout()
     plt.show()
 
-
-# Function for cleaning Pandas DataFrame
 def clean_pandas_dataframe(df):
     print("\nCleaning...")
     object_cols = df.select_dtypes(include=['object', 'string']).columns
@@ -356,8 +324,8 @@ def check_duplicated_data():
     print(duplicates)
 
     # print duplicated rows
-    duplicates = trips_by_distance_pandas.duplicated().sum() # have to use pandas be
-    print("Duplicates found in: trips_by_distance_pandas")
+    duplicates = trips_by_distance_pandas.duplicated().sum()
+    print("Duplicates found in: trips_by_distance")
     print(duplicates)
 
 if __name__ == "__main__":
